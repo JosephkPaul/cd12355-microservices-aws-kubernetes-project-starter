@@ -37,7 +37,7 @@ spec:
       containers:
       - name: coworking
         # Image pushed by CodeBuild (buildspec.yaml): <account>.dkr.ecr.<region>.amazonaws.com/coworking:<semver>
-        image: 389164333015.dkr.ecr.us-east-1.amazonaws.com/coworking:1.0.1
+        image: 389164333015.dkr.ecr.us-east-1.amazonaws.com/coworking:1.0.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5153
