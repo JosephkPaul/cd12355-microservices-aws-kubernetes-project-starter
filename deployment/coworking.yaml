@@ -7,7 +7,7 @@ spec:
   selector:
     service: coworking
   ports:
-  - name: "5153"
+  - name: http
     protocol: TCP
     port: 5153
     targetPort: 5153
@@ -20,6 +20,12 @@ metadata:
     name: coworking
 spec:
   replicas: 1
+  # Start the new pod and wait for it to pass readiness before stopping the old one.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       service: coworking
@@ -30,27 +36,39 @@ spec:
     spec:
       containers:
       - name: coworking
-        image: <DOCKER_IMAGE_URI_FROM_ECR>
+        # Image pushed by CodeBuild (buildspec.yaml): <account>.dkr.ecr.<region>.amazonaws.com/coworking:<semver>
+        image: 389164333015.dkr.ecr.us-east-1.amazonaws.com/coworking:1.0.1
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5153
         livenessProbe:
           httpGet:
             path: /health_check
             port: 5153
           initialDelaySeconds: 5
+          periodSeconds: 10
           timeoutSeconds: 2
         readinessProbe:
           httpGet:
             path: "/readiness_check"
             port: 5153
           initialDelaySeconds: 5
+          periodSeconds: 10
           timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
         envFrom:
         - configMapRef:
-            name: <NAME OF THE ConfigMap>
+            name: coworking-configmap
         env:
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: <NAME OF THE Secret>
-              key: <THE KEY FROM Secret WHICH has THE ENCODED PASSWORD>
+              name: coworking-secret
+              key: DB_PASSWORD
       restartPolicy: Always

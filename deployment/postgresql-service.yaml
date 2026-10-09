@@ -1,0 +1,16 @@
+# Internal-only (ClusterIP) endpoint for PostgreSQL; this name is DB_HOST in configmap.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-service
+  labels:
+    app: postgresql
+spec:
+  type: ClusterIP
+  selector:
+    app: postgresql
+  ports:
+  - name: postgres
+    protocol: TCP
+    port: 5432
+    targetPort: 5432

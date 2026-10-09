@@ -1,0 +1,17 @@
+# Statically provisioned volume for PostgreSQL data, stored on the worker node's disk.
+# "manual" is not a real StorageClass; it only pairs this PV with postgresql-pvc so no
+# dynamic EBS provisioning (and no EBS CSI driver) is required.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgresql-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: /mnt/data
+    type: DirectoryOrCreate
