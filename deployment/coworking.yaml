@@ -33,11 +33,15 @@ spec:
     metadata:
       labels:
         service: coworking
+      annotations:
+        # Opt out of the OpenTelemetry agent the CloudWatch Observability add-on injects by default:
+        # it takes over Python logging, hiding the request and report logs Container Insights collects.
+        instrumentation.opentelemetry.io/inject-python: "false"
     spec:
       containers:
       - name: coworking
         # Image pushed by CodeBuild (buildspec.yaml): <account>.dkr.ecr.<region>.amazonaws.com/coworking:<semver>
-        image: 389164333015.dkr.ecr.us-east-1.amazonaws.com/coworking:1.0.2
+        image: 389164333015.dkr.ecr.us-east-1.amazonaws.com/coworking:1.0.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5153
