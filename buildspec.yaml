@@ -1,0 +1,31 @@
+version: 0.2
+
+# Builds analytics/Dockerfile and pushes it to Amazon ECR.
+# Values below are defaults; CodeBuild project environment variables override them.
+env:
+  variables:
+    IMAGE_REPO_NAME: "coworking"
+    # MAJOR.MINOR of the release line. CodeBuild's build number becomes the PATCH,
+    # so images are tagged 1.0.1, 1.0.2, ... (semantic versioning).
+    VERSION_PREFIX: "1.0"
+
+phases:
+  pre_build:
+    on-failure: ABORT
+    commands:
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - IMAGE_TAG="$VERSION_PREFIX.$CODEBUILD_BUILD_NUMBER"
+      - IMAGE_URI="$ECR_REGISTRY/$IMAGE_REPO_NAME:$IMAGE_TAG"
+      - echo "Logging in to Amazon ECR $ECR_REGISTRY"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  build:
+    on-failure: ABORT
+    commands:
+      - echo "Building $IMAGE_REPO_NAME:$IMAGE_TAG from commit $CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - docker build --label org.opencontainers.image.version="$IMAGE_TAG" --label org.opencontainers.image.revision="$CODEBUILD_RESOLVED_SOURCE_VERSION" -t "$IMAGE_REPO_NAME:$IMAGE_TAG" analytics
+      - docker tag "$IMAGE_REPO_NAME:$IMAGE_TAG" "$IMAGE_URI"
+  post_build:
+    commands:
+      - echo "Pushing $IMAGE_URI"
+      - docker push "$IMAGE_URI"
