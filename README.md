@@ -2,6 +2,8 @@
 
 The analytics service is a Flask API that reports coworking check-ins from PostgreSQL, and this repository builds it into a container image and runs it on Amazon EKS.
 
+**Full source:** https://github.com/JosephkPaul/cd12355-microservices-aws-kubernetes-project-starter
+
 ## Architecture
 
 ```
@@ -19,7 +21,7 @@ CloudWatch Container Insights  /aws/containerinsights/coworking-cluster/applicat
 |---|---|
 | `analytics/` | Application source and its `Dockerfile` (Python 3.11 slim, non-root user) |
 | `buildspec.yaml` | CodeBuild steps: ECR login, `docker build`, semantic-version tag, `docker push` |
-| `deployment/` | EKS manifests: app Deployment + Service, PostgreSQL Deployment + Service + PV/PVC, ConfigMap, Secret |
+| `deployments/` | EKS manifests: app Deployment + Service, PostgreSQL Deployment + Service + PV/PVC, ConfigMap, Secret |
 | `deployment-local/` | The same app with a local image and a NodePort Service, for local clusters |
 | `db/`, `scripts/seed-db.sh` | Schema and seed data, streamed into the cluster database with `kubectl exec` |
 | `screenshots/` | Evidence of the running deployment: CodeBuild, ECR, `kubectl` and CloudWatch captures |
@@ -40,9 +42,9 @@ eksctl create cluster --name coworking-cluster --region us-east-1 --zones us-eas
   --nodegroup-name coworking-nodes --node-type t3.medium --nodes 1 --nodes-min 1 --nodes-max 2 --vpc-nat-mode Disable
 aws ecr create-repository --repository-name coworking --image-scanning-configuration scanOnPush=true --region us-east-1
 
-kubectl apply -f deployment/configmap.yaml -f deployment/secret.yaml
-kubectl apply -f deployment/pv.yaml -f deployment/pvc.yaml \
-  -f deployment/postgresql-deployment.yaml -f deployment/postgresql-service.yaml
+kubectl apply -f deployments/configmap.yaml -f deployments/secret.yaml
+kubectl apply -f deployments/pv.yaml -f deployments/pvc.yaml \
+  -f deployments/postgresql-deployment.yaml -f deployments/postgresql-service.yaml
 ./scripts/seed-db.sh
 
 NODE_ROLE=$(aws eks describe-nodegroup --cluster-name coworking-cluster --nodegroup-name coworking-nodes \
@@ -57,11 +59,11 @@ The first release of the API follows the same steps as every later one.
 ## Releasing a new build
 
 1. Merge the application change to `main` and wait for CodeBuild to push `coworking:1.0.<N>`; bump `VERSION_PREFIX` for a feature (`1.1`) or breaking (`2.0`) release.
-2. Point `deployment/coworking.yaml` at the new tag, commit the change, and apply it:
+2. Point `deployments/coworking.yaml` at the new tag, commit the change, and apply it:
    ```bash
    ECR_URI=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com/coworking
-   sed -i "s|image: .*coworking:.*|image: $ECR_URI:1.0.<N>|" deployment/coworking.yaml
-   kubectl apply -f deployment/coworking.yaml && kubectl rollout status deployment/coworking
+   sed -i "s|image: .*coworking:.*|image: $ECR_URI:1.0.<N>|" deployments/coworking.yaml
+   kubectl apply -f deployments/coworking.yaml && kubectl rollout status deployment/coworking
    ```
 3. Kubernetes starts the new pod and stops the old one only after the new pod passes its readiness probe, so a release causes no downtime.
    If the new version misbehaves, `kubectl rollout undo deployment/coworking` restores the previous image.

@@ -1,4 +1,4 @@
-# Local-cluster copy of deployment/configmap.yaml and deployment/secret.yaml.
+# Local-cluster copy of deployments/configmap.yaml and deployments/secret.yaml.
 apiVersion: v1
 kind: ConfigMap
 metadata:
