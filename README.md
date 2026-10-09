@@ -22,13 +22,14 @@ CloudWatch Container Insights  /aws/containerinsights/coworking-cluster/applicat
 | `deployment/` | EKS manifests: app Deployment + Service, PostgreSQL Deployment + Service + PV/PVC, ConfigMap, Secret |
 | `deployment-local/` | The same app with a local image and a NodePort Service, for local clusters |
 | `db/`, `scripts/seed-db.sh` | Schema and seed data, streamed into the cluster database with `kubectl exec` |
+| `screenshots/` | Evidence of the running deployment: CodeBuild, ECR, `kubectl` and CloudWatch captures |
 
 ## How it works
 
-- **Build:** A GitHub webhook starts CodeBuild on every push, and the image is tagged `MAJOR.MINOR.PATCH`, where `MAJOR.MINOR` is `VERSION_PREFIX` in `buildspec.yaml` and `PATCH` is the CodeBuild build number.
+- **Build:** A GitHub webhook starts CodeBuild on every push to `main` that touches `analytics/` or `buildspec.yaml`, and the image is tagged `MAJOR.MINOR.PATCH`, where `MAJOR.MINOR` is `VERSION_PREFIX` in `buildspec.yaml` and `PATCH` is the CodeBuild build number.
 - **Configuration:** Plaintext settings (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`) live in a ConfigMap and the password lives in a Secret, and both PostgreSQL and the API read them, so the credentials always match.
 - **Health:** `/health_check` drives the liveness probe, while `/readiness_check` queries the database, so a pod only receives traffic once it can serve reports.
-- **Logs:** The Container Insights add-on ships container output to CloudWatch, including the probe requests every 10 seconds and the usage report the app logs every 30 seconds.
+- **Logs:** The Container Insights add-on ships container output to CloudWatch, including the probe requests every 10 seconds and the usage report the app logs every 30 seconds, and a pod annotation opts the app out of the add-on's OpenTelemetry auto-injection, which would otherwise take over Python logging.
 
 ## First-time setup
 
@@ -50,12 +51,12 @@ aws iam attach-role-policy --role-name "$NODE_ROLE" --policy-arn arn:aws:iam::aw
 aws eks create-addon --cluster-name coworking-cluster --addon-name amazon-cloudwatch-observability --region us-east-1
 ```
 
-Then create a CodeBuild project for this GitHub repository with a push webhook, a standard Linux image in privileged mode (required for Docker builds), and the `AmazonEC2ContainerRegistryPowerUser` policy on its service role.
+Then create a CodeBuild project for this GitHub repository with buildspec `buildspec.yaml`, a push webhook, an Amazon Linux standard image on `BUILD_GENERAL1_SMALL` in privileged mode (required for Docker builds), and the `AmazonEC2ContainerRegistryPowerUser` policy on its service role.
 The first release of the API follows the same steps as every later one.
 
 ## Releasing a new build
 
-1. Merge to the default branch and wait for CodeBuild to push `coworking:1.0.<N>`; bump `VERSION_PREFIX` for a feature (`1.1`) or breaking (`2.0`) release.
+1. Merge the application change to `main` and wait for CodeBuild to push `coworking:1.0.<N>`; bump `VERSION_PREFIX` for a feature (`1.1`) or breaking (`2.0`) release.
 2. Point `deployment/coworking.yaml` at the new tag, commit the change, and apply it:
    ```bash
    ECR_URI=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com/coworking
